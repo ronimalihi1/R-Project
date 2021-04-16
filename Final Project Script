@@ -1,0 +1,261 @@
+# Packages 
+library(readxl)
+library(ggplot2)
+library(corrplot)
+library(glmnet)
+library(randomForest)
+library(chron)
+library(ggplot2)
+library(reshape2)
+library(corrplot)
+library(moments)
+library(reshape2)
+library(party)
+
+
+# Import Data 
+ss = read_excel("/Users/ronimalihi/Desktop/Supermarket Sales - Stock.xlsx")
+str(ss)
+
+#Number of NA's (=o)
+sum(is.na(ss))
+
+
+
+###   Correlations   ###
+cor(ss$Payment,ss$Rating)
+cor(ss,method = "pearson")
+correlations = cor(ss,method = "spearman")
+corrplot(correlations)
+palette = colorRampPalette(c("green","white","red"))(20)
+heatmap(x = correlations , col = palette , symm = TRUE)
+cor(ss$Total,ss$GrossIncome)
+
+numeric.fic= ss[,-c(1,2,3,4,5,10,11,12)]
+colnames(numeric.fic)=c("UnitPrice",	"Quantity",	"Tax5","Total",	"COGS",	"GrossIncome","Rating")
+
+numeric_cor= cor(numeric.fic,method="pearson")
+corrplot(numeric_cor)
+palette = colorRampPalette(c("green", "red", "blue")) (10)
+
+
+## Delete Invoice ID and GMP columns ##
+BF = ss[,-c(1,2,7,8,9,10,14,15)]
+
+colnames(ss)=c("City","CustomerType","Gender","ProductLine",
+               "Date","Time","Payment","Gross Income", "Rating")
+
+ss = ss[,-c(1,15)]
+colnames(ss)=c("Branch", "City", "CustomerType", "Gender", "ProductLine", "UnitPrice", "Quantity", "Tax5","Total", "Date", "Time", "Payment", "COGS", "GrossIncome","Rating")
+
+#Data Manipulations
+#Factor
+ss$Gender = factor(ss$Gender)
+ss$City = factor(ss$City )
+ss$CustomerType = factor(ss$CustomerType)
+ss$ProductLine = factor(ss$ProductLine)
+ss$Payment = factor(ss$Payment)
+ss$Branch = factor(ss$Branch)
+
+
+##Factor_Levels##
+levels(ss$Gender) = c("Male","Female")
+levels(ss$City) = c("Yangon","Naypyitaw","Mandalay" )
+levels(ss$CustomerType) = c("Member", "Normal")
+levels(ss$ProductLine) = c("Health and beauty","Electronic accessories", "Home and lifestyle","Sports and travel","Food and beverages","Fashion accessories")
+levels(ss$Payment) = c("Ewallet","Cash", "Credit Card")
+levels(ss$Branch) = c("A","B","C")
+
+
+head(ss)
+
+#Change date column from Character to Date type
+ss$Date= as.Date(ss$Date, format = ("%m/%d/%y"))
+
+ss$Time =times(format(ss$Time, "%H:%M:%S"))
+
+#Histogram of Rating Density
+d= density(ss$Rating)
+hist(ss$Rating, prob = TRUE, breaks = 50,main="Histogram of Rating Density",
+     xlab="Rating",
+     sub="Mean = 6.79 (blue)")
+lines(d, col = 2)
+abline(v = mean(ss$Rating), col="steelblue", lwd=3, lty=2)
+
+
+#Histogram of Quantity Density
+d= density(ss$Quantity)
+hist(ss$Quantity, prob = TRUE, breaks = 50,main="Histogram of Quantity Density",
+     xlab="Quantity",
+     sub="Mean = 6.79 (blue)")
+lines(d, col = 2)
+abline(v = mean(ss$Quantity), col="steelblue", lwd=3, lty=2)
+
+# EDA - Descriptive Statistics
+#Frequency Table 
+ft = data.frame(table(ss$Gender))
+colnames(ft) = c("Gender","Freq")
+ft$Rel.Freq = round((ft$Freq / sum(ft$Freq))*100,2)
+show(ft)
+
+#Rating&City#
+ggplot(data = ss)+
+  geom_density(mapping = aes(x = Rating, y = after_stat(scaled), color = City))
+
+#Rating&ProductLine#
+ggplot(data = ss)+
+  geom_density(mapping = aes(x = Rating, y = after_stat(scaled), color = CustomerType))
+
+
+# Branch and City are the same
+ft = data.frame(table(ss$Branch))
+colnames(ft) = c("Branch","Freq")
+ft$Rel.Freq = round((ft$Freq / sum(ft$Freq))*100,2)
+show(ft)
+
+
+ft = data.frame(table(ss$CustomerType))
+colnames(ft) = c("CustomerType","Freq")
+ft$Rel.Freq = round((ft$Freq / sum(ft$Freq))*100,2)
+show(ft)
+
+ft = data.frame(table(ss$Payment))
+colnames(ft) = c("Payment","Freq")
+ft$Rel.Freq = round((ft$Freq / sum(ft$Freq))*100,2)
+show(ft)
+
+
+# Bar Chart #
+ggplot(data = ss) + geom_bar(mapping = aes (x= CustomerType),fill = c(" light blue","steelblue"),col = "black")
+
+ggplot(data = ss)
++ geom_bar(mapping = aes (x= Payment),fill= c( "light blue", "steelblue", "blue"),col = "black")
+
+
+# Descriptive Statistics 
+Measure = c("Valid N","Mean","SD","Minimum","Median","Maximum")
+Value = round(c(sum(!is.na(ss$Rating)),mean(ss$Rating),sd(ss$Rating),min(ss$Rating),median(ss$Rating),max(ss$Rating)),2) #if missing value exist 
+Total.DS = data.frame(Measure,Value)
+
+
+
+#Graphics Numerical Variables #
+numeric.vars = sapply(ss,is.numeric)
+
+ss.numeric = ss[,numeric.vars]
+ss.long = melt(ss.numeric)
+
+########
+ggplot(data=ss, aes(x=City, y=Rating)) +
+  geom_bar(stat="identity", fill="steelblue")
+
+
+ggplot(data=ss, aes(x=Date, y=GrossIncome)) +
+  geom_bar(stat="identity", fill="steelblue")
+
+
+ggplot(ss) + geom_histogram(mapping = aes(x=Rating, color=Gender), bins=15, fill='white')
+
+ggplot(ss) + geom_histogram(mapping = aes(x=, color=Gender), bins=15, fill='white')
+
+par(mfrow=c(1, 2))  # divide graph area in 2 columns
+boxplot(ss$GrossIncome, main="GrossIncome", sub=paste("Outlier rows: ", boxplot.stats(ss$GrossIncome)$out)) 
+boxplot(ss$UnitPrice, main="UnitPrice", sub=paste("Outlier rows: ", boxplot.stats(ss$UnitPrice)$out))
+
+
+boxplot(ss$Quantity, main="UnitPrice", sub=paste("Outlier rows: ", boxplot.stats(ss$Quantity)$out))
+
+
+
+# Train and Test #
+
+
+train.size = floor(nrow(ss)*0.7)
+set.seed(123)
+train.index = sample(1:nrow(ss),train.size)
+train.set = ss[train.index,]
+test.set = ss[-train.index,]
+
+
+
+### Linear Regression ###
+
+
+reg.model = lm(Rating ~ . , data = train.set)
+summary(reg.model)
+
+reg.model = lm(Rating ~ UnitPrice+Quantity+Tax5+Time , data = train.set)
+
+y.hat.reg = predict(reg.model, newdata = test.set)
+reg.mse = mean((test.set$Rating - y.hat.reg)^2)
+
+
+# Preparing Matrices and Vectors #
+
+X.train = model.matrix(Rating ~ . , data = train.set)[,-1]
+X.test = model.matrix(Rating ~ . , data = test.set)[,-1]
+
+y.train = train.set$Rating
+y.test = test.set$Rating
+
+
+####  Ridge Regression  ####
+
+
+set.seed(1)
+cv.out = cv.glmnet(x = X.train , y = y.train, alpha = 0)
+plot(cv.out)
+best.lambda = cv.out$lambda.min
+log(best.lambda)
+ridge.model = glmnet(x = X.train , y = y.train, alpha = 0)
+y.hat.ridge = predict(ridge.model, s = best.lambda , newx = X.test)
+ridge.mse = mean((y.test - y.hat.ridge)^2)
+
+
+
+
+#### Lasso Regression  ####
+
+set.seed(1)
+cv.out = cv.glmnet(x = X.train , y = y.train, alpha = 1)
+plot(cv.out)
+best.lambda = cv.out$lambda.min
+log(best.lambda)
+lasso.model = glmnet(x = X.train , y = y.train, alpha = 1)
+y.hat.lasso = predict(lasso.model, s = best.lambda , newx = X.test)
+lasso.mse = mean((y.test - y.hat.lasso)^2)
+
+
+###  Elastic Net  ###
+
+set.seed(1)
+cv.out = cv.glmnet(x = X.train , y = y.train, alpha = 0.5, nfold = 10)
+plot(cv.out)
+best.lambda = cv.out$lambda.min
+log(best.lambda)
+elastic.model = glmnet(x = X.train , y = y.train, alpha = 0.5)
+y.hat.elastic = predict(elastic.model, s = best.lambda , newx = X.test)
+elastic.mse = mean((y.test - y.hat.elastic)^2)
+summary(elastic.model)
+
+
+
+
+###  Random Forest  ###
+
+rf.model = randomForest(Rating ~ . , data = train.set, mtry = 4)
+y.hat.rf = predict(rf.model, newdata = test.set)
+rf.mse = mean((test.set$Rating - y.hat.rf)^2)
+varImpPlot(rf.model)
+importance(rf.model)
+summary(rf.model)
+
+
+###  Summary  ###
+
+
+model = c("Linear Regression", "Ridge Regression", "Lasso", "Elastic Net (alpha=0.3)", "Random Forest")
+mse = round(c(reg.mse, ridge.mse, lasso.mse, elastic.mse, rf.mse),4)
+output = data.frame(model, mse)
+sorted_mse = output[order(mse),]
+
